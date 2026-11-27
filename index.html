@@ -10,7 +10,7 @@
       --bg: #000000;
       --surface: #0a0f14;
       --surface-2: #111922;
-      --glass: rgba(8, 12, 18, 0.86);
+      --glass: rgba(8, 12, 18, 0.88);
       --border: rgba(255, 255, 255, 0.09);
       --border-accent: rgba(0, 240, 255, 0.34);
       --cyan: #00f0ff;
@@ -366,7 +366,7 @@
       word-break: break-word;
     }
 
-    .user-attachment { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .user-attachment { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
     .user-attachment img { max-width: 210px; max-height: 210px; border-radius: 12px; border: 1px solid var(--border); display: block; }
     .file-pill {
       display: inline-flex; align-items: center; gap: 6px;
@@ -497,7 +497,7 @@
     }
     .send-circle.stop-mode { background: #ffffff; color: #000000; }
 
-    /* Attachment Sheet */
+    /* Attach Sheet */
     .attach-sheet {
       position: fixed; bottom: 76px; left: 16px;
       background: #0d141d; border: 1px solid var(--border); border-radius: 16px;
@@ -525,20 +525,32 @@
       width: 100%; max-width: 420px; background: #0a1017;
       border: 1px solid var(--border-accent); border-radius: 18px; padding: 20px;
     }
-    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .modal-head h3 { font-size: 15px; color: #fff; }
 
     .field { margin-bottom: 12px; }
     .field label { display: block; font-size: 11.5px; color: var(--cyan); margin-bottom: 6px; font-weight: 600; }
-    .field input, .field select {
+    .field input {
       width: 100%; padding: 10px 12px; border-radius: 10px;
       border: 1px solid var(--border); background: #03060a;
       color: #fff; font-family: var(--mono); font-size: 12.5px; outline: none;
     }
-    .field input:focus, .field select:focus { border-color: var(--cyan); }
+    .field input:focus { border-color: var(--cyan); }
 
-    .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
-    .m-btn { flex: 1; padding: 11px; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .admin-status {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      padding: 9px 11px;
+      border-radius: 10px;
+      background: #04080d;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+    .m-btn { flex: 1; padding: 10px; border-radius: 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
     .m-btn.primary { border: none; background: linear-gradient(135deg, var(--cyan), var(--emerald)); color: #000; }
     .m-btn.ghost { border: 1px solid var(--border); background: transparent; color: var(--text); }
 
@@ -686,31 +698,16 @@
   <div class="modal-bg" id="adminModal">
     <div class="modal-card">
       <div class="modal-head">
-        <h3>Admin Engine Setup</h3>
+        <h3>Admin Engine Panel</h3>
         <button class="icon-circle" id="closeAdmin">✕</button>
       </div>
+      <div class="admin-status" id="adminStatus">Backend: /api/chat/completions</div>
       <div class="field">
-        <label>AI Provider (GitHub Pages Ready)</label>
-        <select id="cfgProvider">
-          <option value="gemini">Google Gemini (Free - Text + Photo Vision)</option>
-          <option value="groq">Groq (Free - Ultra Fast + Photo Vision)</option>
-          <option value="openrouter">OpenRouter (Multi-Model)</option>
-          <option value="custom">Custom HTTPS OpenAI URL</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>API Key</label>
-        <input type="password" id="cfgKey" autocomplete="new-password" spellcheck="false" placeholder="Paste your API key" />
-      </div>
-      <div class="field" id="customUrlWrap" style="display:none;">
-        <label>Custom HTTPS Base URL</label>
-        <input type="text" id="cfgCustomUrl" autocomplete="off" spellcheck="false" placeholder="https://your-api.com/v1" />
-      </div>
-      <div class="field" id="customModelWrap" style="display:none;">
-        <label>Custom Model ID (Optional)</label>
-        <input type="text" id="cfgCustomModel" autocomplete="off" spellcheck="false" placeholder="auto" />
+        <label>Backup API Key (Optional - agar Vercel Env set nahi ho)</label>
+        <input type="password" id="cfgKey" autocomplete="new-password" spellcheck="false" placeholder="Gemini (AIza...) ya Groq (gsk_...) key" />
       </div>
       <div class="modal-btns">
+        <button class="m-btn ghost" id="testApiBtn">Test API</button>
         <button class="m-btn ghost" id="resetCfg">Reset</button>
         <button class="m-btn primary" id="saveCfg">Save</button>
       </div>
@@ -729,71 +726,20 @@
   </div>
 
   <script>
-    // =========================================================================
-    // SIRF YE 2 LINE SET KAREIN AUR GITHUB PAGES PAR UPLOAD KAR DEIN:
-    // provider options: "gemini" (Best Free + Photo) | "groq" | "openrouter" | "custom"
-    // =========================================================================
-    const CONFIG = {
-      provider: "gemini",                 // "gemini", "groq", "openrouter", ya "custom"
-      apiKey: "PASTE_YOUR_API_KEY_HERE",  // Yahan apni free API key paste karein
-      customUrl: "",                      // Sirf tab jab provider = "custom" ho
-      customModel: ""                     // Sirf tab jab custom model chahiye
-    };
-
-    const PROVIDERS = {
-      gemini: {
-        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        models: {
-          auto: "gemini-2.5-flash",
-          fast: "gemini-2.5-flash",
-          deep: "gemini-2.5-flash",
-          coder: "gemini-2.5-flash",
-          vision: "gemini-2.5-flash"
-        }
-      },
-      groq: {
-        baseUrl: "https://api.groq.com/openai/v1",
-        models: {
-          auto: "llama-3.3-70b-versatile",
-          fast: "llama-3.1-8b-instant",
-          deep: "llama-3.3-70b-versatile",
-          coder: "llama-3.3-70b-versatile",
-          vision: "meta-llama/llama-4-scout-17b-16e-instruct"
-        }
-      },
-      openrouter: {
-        baseUrl: "https://openrouter.ai/api/v1",
-        models: {
-          auto: "openrouter/auto",
-          fast: "openrouter/auto",
-          deep: "openrouter/auto",
-          coder: "openrouter/auto",
-          vision: "openrouter/auto"
-        }
-      }
-    };
-
-    const STORE_CFG = "jamal_ai_gh_cfg_v4";
-    const STORE_CHATS = "jamal_ai_gh_chats_v4";
-
+    const API_ENDPOINT = "/api/chat/completions";
+    const STORE_KEY_OVERRIDE = "jamal_ai_v5_key";
+    const STORE_CHATS = "jamal_ai_v5_chats";
     const MODE_LABEL = { auto: "Auto", fast: "Fast", deep: "Deep", coder: "Coder" };
 
-    function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
-    function loadJSON(key, fallback) {
+    function safeLoad(key, fallback) {
       try {
-        const v = JSON.parse(localStorage.getItem(key));
-        if (!v) return clone(fallback);
-        return Array.isArray(fallback) ? v : Object.assign(clone(fallback), v);
-      } catch (_) { return clone(fallback); }
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (_) { return fallback; }
     }
 
-    let cfg = loadJSON(STORE_CFG, CONFIG);
-    // Agar code mein nayi valid key paste ki gayi ho to purani placeholder override kar do
-    if (CONFIG.apiKey && CONFIG.apiKey !== "PASTE_YOUR_API_KEY_HERE" && cfg.apiKey === "PASTE_YOUR_API_KEY_HERE") {
-      cfg = clone(CONFIG);
-    }
-
-    let chats = loadJSON(STORE_CHATS, []);
+    let localKeyOverride = localStorage.getItem(STORE_KEY_OVERRIDE) || "";
+    let chats = safeLoad(STORE_CHATS, []);
     let activeChatId = null;
     let currentMode = "auto";
     let language = "auto";
@@ -818,7 +764,19 @@
     const attachPreview = document.getElementById("attachPreview");
     const toastEl = document.getElementById("toast");
 
-    function saveChats() { localStorage.setItem(STORE_CHATS, JSON.stringify(chats.slice(0, 25))); }
+    function saveChats() {
+      try {
+        localStorage.setItem(STORE_CHATS, JSON.stringify(chats.slice(0, 20)));
+      } catch (_) {
+        // Storage quota safe fallback: strip heavy base64 images from older history
+        const slim = chats.slice(0, 12).map(c => ({
+          ...c,
+          messages: c.messages.map(m => ({ ...m, image: null }))
+        }));
+        try { localStorage.setItem(STORE_CHATS, JSON.stringify(slim)); } catch (__) {}
+      }
+    }
+
     function showToast(msg) {
       toastEl.textContent = msg;
       toastEl.classList.add("show");
@@ -845,7 +803,7 @@
     function speak(text) {
       if (!("speechSynthesis" in window)) return;
       window.speechSynthesis.cancel();
-      const clean = text.replace(/```[\s\S]*?```/g, " Code ready. ").replace(/[*#_`>-]/g, "").slice(0, 500);
+      const clean = String(text || "").replace(/```[\s\S]*?```/g, " Code ready. ").replace(/[*#_`>-]/g, "").slice(0, 500);
       const u = new SpeechSynthesisUtterance(clean);
       u.rate = 1.03;
       window.speechSynthesis.speak(u);
@@ -1048,8 +1006,8 @@
       return wrap;
     }
 
-    // Photo Compression & File Reader
-    function compressImage(file, maxDim = 1024) {
+    // Photo Compression (keeps payload small & fast for Vercel)
+    function compressImage(file, maxDim = 960) {
       return new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onerror = reject;
@@ -1065,7 +1023,7 @@
             const c = document.createElement("canvas");
             c.width = w; c.height = h;
             c.getContext("2d").drawImage(img, 0, 0, w, h);
-            resolve(c.toDataURL("image/jpeg", 0.82));
+            resolve(c.toDataURL("image/jpeg", 0.78));
           };
           img.src = e.target.result;
         };
@@ -1087,7 +1045,7 @@
       if (!file) return;
       const r = new FileReader();
       r.onload = (e) => {
-        pendingFile = { name: file.name, content: String(e.target.result).slice(0, 28000) };
+        pendingFile = { name: file.name, content: String(e.target.result).slice(0, 24000) };
         renderAttachPreview();
         promptEl.focus();
       };
@@ -1117,8 +1075,8 @@
     function buildSystemPrompt() {
       const modeRules = {
         auto: "Be smart, natural, accurate, and clear.",
-        fast: "Give super concise, direct answers or exact commands immediately without filler.",
-        deep: "Perform thorough deep analysis with clear structure, key insights, edge cases, and step-by-step logic.",
+        fast: "Give concise, direct answers or exact commands immediately without filler.",
+        deep: "Perform thorough deep analysis with clear headings, key insights, and step-by-step reasoning.",
         coder: "Write clean, bug-free, production-ready code with clear explanations."
       };
       const langRule = language === "auto"
@@ -1127,47 +1085,12 @@
       return `You are Jamal AI, a flagship multimodal AI assistant. ${modeRules[currentMode] || modeRules.auto} ${langRule}`;
     }
 
-    function resolveEndpointAndModel(hasImage) {
-      const p = cfg.provider || "gemini";
-      if (p === "custom") {
-        const base = (cfg.customUrl || "").replace(/\/+$/, "");
-        const model = cfg.customModel || (currentMode === "fast" ? "auto:fast" : currentMode === "deep" || hasImage ? "auto:smart" : "auto");
-        return { baseUrl: base, model };
-      }
-      const info = PROVIDERS[p] || PROVIDERS.gemini;
-      const model = hasImage ? info.models.vision : (info.models[currentMode] || info.models.auto);
-      return { baseUrl: info.baseUrl, model };
-    }
-
     function setGenerating(active) {
       isGenerating = active;
       sendBtn.classList.toggle("stop-mode", active);
       sendIcon.innerHTML = active
         ? `<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>`
         : `<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>`;
-    }
-
-    async function callAPI(baseUrl, model, apiMessages, useStream) {
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${cfg.apiKey.trim()}`
-      };
-      if (cfg.provider === "openrouter") {
-        headers["HTTP-Referer"] = window.location.origin;
-        headers["X-Title"] = "Jamal AI";
-      }
-
-      return fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          messages: apiMessages,
-          temperature: currentMode === "coder" ? 0.2 : currentMode === "deep" ? 0.35 : 0.65,
-          stream: useStream
-        }),
-        signal: abortController.signal
-      });
     }
 
     async function sendPrompt(customText = null) {
@@ -1215,16 +1138,8 @@
       abortController = new AbortController();
 
       try {
-        if (!cfg.apiKey || cfg.apiKey === "PASTE_YOUR_API_KEY_HERE") {
-          renderedBox.innerHTML = `<div class="md"><p style="color:#9eb0c2;">Service setup pending hai. (Admin: upar "Jamal AI" par 5 baar tap karke API key save karein.)</p></div>`;
-          return;
-        }
-
-        const hasAnyImage = Boolean(imgSnap) || chat.messages.slice(-8).some(m => m.image);
-        const { baseUrl, model } = resolveEndpointAndModel(hasAnyImage);
-
         const apiMessages = [{ role: "system", content: buildSystemPrompt() }];
-        chat.messages.slice(-10).forEach(m => {
+        chat.messages.slice(-8).forEach(m => {
           if (m.role === "user" && m.image) {
             apiMessages.push({
               role: "user",
@@ -1238,52 +1153,26 @@
           }
         });
 
-        let res = await callAPI(baseUrl, model, apiMessages, true);
-        if (!res.ok) {
-          // Automatic non-stream fallback
-          res = await callAPI(baseUrl, model, apiMessages, false);
-        }
-        if (!res.ok) throw new Error("API_ERR_" + res.status);
+        const headers = { "Content-Type": "application/json" };
+        if (localKeyOverride) headers["Authorization"] = `Bearer ${localKeyOverride}`;
 
-        const ctype = res.headers.get("content-type") || "";
-        let fullReply = "";
-        let fullReasoning = "";
+        const res = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            mode: currentMode,
+            messages: apiMessages,
+            temperature: currentMode === "coder" ? 0.2 : currentMode === "deep" ? 0.35 : 0.65
+          }),
+          signal: abortController.signal
+        });
 
-        if (ctype.includes("text/event-stream") && res.body) {
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error?.message || "HTTP_" + res.status);
 
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith("data:")) continue;
-              const payload = trimmed.slice(5).trim();
-              if (payload === "[DONE]") break;
-              try {
-                const json = JSON.parse(payload);
-                const delta = json.choices?.[0]?.delta;
-                if (delta?.reasoning_content) fullReasoning += delta.reasoning_content;
-                if (delta?.content) fullReply += delta.content;
-                renderedBox.innerHTML = formatAIResponse(fullReply, fullReasoning);
-                feed.scrollTop = feed.scrollHeight;
-              } catch (_) {}
-            }
-          }
-        } else {
-          const data = await res.json();
-          const msgObj = data?.choices?.[0]?.message;
-          fullReply = msgObj?.content || "";
-          fullReasoning = msgObj?.reasoning_content || "";
-        }
-
-        if (!fullReply.trim()) fullReply = "Response generate nahi ho paya. Dobara try karein.";
+        const msgObj = data?.choices?.[0]?.message || {};
+        const fullReply = (msgObj.content || "").trim() || "Response generate nahi ho paya. Dobara try karein.";
+        const fullReasoning = msgObj.reasoning_content || "";
 
         const aiMsg = { role: "assistant", content: fullReply, reasoning: fullReasoning };
         chat.messages.push(aiMsg);
@@ -1389,15 +1278,25 @@
     }
 
     // Secret 5-Tap Admin Panel
-    const cfgProvider = document.getElementById("cfgProvider");
-    function toggleCustomFields() {
-      const isCustom = cfgProvider.value === "custom";
-      document.getElementById("customUrlWrap").style.display = isCustom ? "block" : "none";
-      document.getElementById("customModelWrap").style.display = isCustom ? "block" : "none";
-    }
-    cfgProvider.onchange = toggleCustomFields;
-
+    const adminModal = document.getElementById("adminModal");
+    const adminStatus = document.getElementById("adminStatus");
     let taps = 0, tapTimer = null;
+
+    async function checkBackendStatus() {
+      adminStatus.textContent = "Checking backend...";
+      try {
+        const headers = {};
+        if (localKeyOverride) headers["Authorization"] = `Bearer ${localKeyOverride}`;
+        const r = await fetch(API_ENDPOINT, { headers });
+        const d = await r.json();
+        adminStatus.textContent = d.keyConfigured
+          ? `ONLINE | Provider: ${d.provider.toUpperCase()} | Ready`
+          : `ONLINE | API Key missing (Vercel Env AI_API_KEY set karein)`;
+      } catch (_) {
+        adminStatus.textContent = "Backend /api/chat/completions nahi mila (api file upload karein)";
+      }
+    }
+
     document.getElementById("brandTapTarget").addEventListener("click", (e) => {
       if (e.target === modeBtn) return;
       taps++;
@@ -1405,29 +1304,51 @@
       tapTimer = setTimeout(() => { taps = 0; }, 1200);
       if (taps >= 5) {
         taps = 0;
-        cfgProvider.value = cfg.provider || "gemini";
-        document.getElementById("cfgKey").value = cfg.apiKey === "PASTE_YOUR_API_KEY_HERE" ? "" : cfg.apiKey;
-        document.getElementById("cfgCustomUrl").value = cfg.customUrl || "";
-        document.getElementById("cfgCustomModel").value = cfg.customModel || "";
-        toggleCustomFields();
-        document.getElementById("adminModal").classList.add("open");
+        document.getElementById("cfgKey").value = localKeyOverride;
+        adminModal.classList.add("open");
+        checkBackendStatus();
       }
     });
 
-    document.getElementById("closeAdmin").onclick = () => document.getElementById("adminModal").classList.remove("open");
+    document.getElementById("closeAdmin").onclick = () => adminModal.classList.remove("open");
+    document.getElementById("testApiBtn").onclick = async () => {
+      adminStatus.textContent = "Testing live AI reply...";
+      try {
+        const testKey = document.getElementById("cfgKey").value.trim() || localKeyOverride;
+        const headers = { "Content-Type": "application/json" };
+        if (testKey) headers["Authorization"] = `Bearer ${testKey}`;
+        const r = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            mode: "fast",
+            messages: [{ role: "user", content: "Reply with OK only." }]
+          })
+        });
+        const d = await r.json();
+        if (r.ok && d?.choices?.[0]?.message?.content) {
+          adminStatus.textContent = "SUCCESS: " + d.choices[0].message.content.slice(0, 60);
+        } else {
+          adminStatus.textContent = "ERROR: " + (d?.error?.message || "HTTP " + r.status);
+        }
+      } catch (e) {
+        adminStatus.textContent = "FAIL: " + e.message;
+      }
+    };
+
     document.getElementById("saveCfg").onclick = () => {
-      cfg.provider = cfgProvider.value;
-      cfg.apiKey = document.getElementById("cfgKey").value.trim() || CONFIG.apiKey;
-      cfg.customUrl = document.getElementById("cfgCustomUrl").value.trim();
-      cfg.customModel = document.getElementById("cfgCustomModel").value.trim();
-      localStorage.setItem(STORE_CFG, JSON.stringify(cfg));
-      document.getElementById("adminModal").classList.remove("open");
+      localKeyOverride = document.getElementById("cfgKey").value.trim();
+      if (localKeyOverride) localStorage.setItem(STORE_KEY_OVERRIDE, localKeyOverride);
+      else localStorage.removeItem(STORE_KEY_OVERRIDE);
+      adminModal.classList.remove("open");
       showToast("Saved");
     };
+
     document.getElementById("resetCfg").onclick = () => {
-      cfg = clone(CONFIG);
-      localStorage.removeItem(STORE_CFG);
-      document.getElementById("adminModal").classList.remove("open");
+      localKeyOverride = "";
+      localStorage.removeItem(STORE_KEY_OVERRIDE);
+      document.getElementById("cfgKey").value = "";
+      checkBackendStatus();
       showToast("Reset");
     };
 
