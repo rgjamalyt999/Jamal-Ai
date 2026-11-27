@@ -135,8 +135,8 @@ async function callGemini(apiKey, provider, messages, temperature) {
     return null;
   }
 
-  // 1. Seedha AI Studio par latest model try karo
-  for (const model of ["gemini-3.0-flash", "gemini-2.5-flash"]) {
+  // 1. Seedha working fast model pehle try karo
+  for (const model of ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.0-flash", "gemini-2.5-flash"]) {
     tried.add(model);
     const res = await tryEndpoint(
       `ai-studio/${model}`,
@@ -145,7 +145,7 @@ async function callGemini(apiKey, provider, messages, temperature) {
     if (res) return res;
   }
 
-  // 2. Agar upar wala 404 aaye toh key ke live working models auto-detect karo
+  // 2. Fallback: key ke live working models auto-detect karo
   const liveModels = await fetchAvailableGeminiModels(apiKey);
   for (const model of liveModels) {
     if (tried.has(model)) continue;
