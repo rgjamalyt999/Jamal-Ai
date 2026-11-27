@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
 
   const detectProvider = (key) => {
     if (!key) return "none";
-    if (key.startsWith("AIza")) return "gemini";
+    if (key.startsWith("AIza") || key.startsWith("AQ.")) return "gemini";
     if (key.startsWith("gsk_")) return "groq";
     if (key.startsWith("sk-or-")) return "openrouter";
     if (process.env.CUSTOM_API_URL) return "custom";
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     const temperature = typeof body.temperature === "number" ? body.temperature : 0.6;
     const provider = detectProvider(apiKey);
 
-    // 1. GOOGLE GEMINI (Native API - Full Text + Photo Vision Support)
+    // 1. GOOGLE GEMINI (Supports both AIza... and AQ.... keys + Photo Vision)
     if (provider === "gemini") {
       let systemText = "";
       const contents = [];
@@ -91,25 +91,35 @@ module.exports = async (req, res) => {
       let lastError = "Gemini API error";
 
       for (const modelName of geminiModels) {
-        const gRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        const endpoints = [
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            url: `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }
+          },
+          {
+            url: `https://aiplatform.googleapis.com/v1/publishers/google/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            headers: { "Content-Type": "application/json" }
           }
-        );
-        const gData = await gRes.json().catch(() => ({}));
-        if (gRes.ok) {
-          const text = (gData.candidates?.[0]?.content?.parts || [])
-            .map((p) => p.text || "")
-            .join("")
-            .trim();
-          return res.status(200).json({
-            choices: [{ message: { role: "assistant", content: text || "Response empty aaya." } }]
+        ];
+
+        for (const ep of endpoints) {
+          const gRes = await fetch(ep.url, {
+            method: "POST",
+            headers: ep.headers,
+            body: JSON.stringify(payload)
           });
+          const gData = await gRes.json().catch(() => ({}));
+          if (gRes.ok) {
+            const text = (gData.candidates?.[0]?.content?.parts || [])
+              .map((p) => p.text || "")
+              .join("")
+              .trim();
+            return res.status(200).json({
+              choices: [{ message: { role: "assistant", content: text || "Response empty aaya." } }]
+            });
+          }
+          lastError = gData?.error?.message || `HTTP ${gRes.status}`;
         }
-        lastError = gData?.error?.message || `HTTP ${gRes.status}`;
       }
 
       return res.status(502).json({ error: { message: lastError } });
@@ -141,7 +151,7 @@ module.exports = async (req, res) => {
       endpoint = `${process.env.CUSTOM_API_URL.replace(/\/+$/, "")}/chat/completions`;
     } else {
       return res.status(400).json({
-        error: { message: "Key format valid nahi hai. Gemini (AIza...), Groq (gsk_...), ya OpenRouter (sk-or-...) key daalein." }
+        error: { message: "Valid Gemini (AIza / AQ.), Groq (gsk_), ya OpenRouter key daalein." }
       });
     }
 
